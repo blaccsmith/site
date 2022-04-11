@@ -1,3 +1,10 @@
 export const Button = () => {
-	return <button className='bg-blue-300 px-2 py-1.5 rounded focus:ring-2 focus:ring-offset-2'>boop</button>;
-};
+  return (
+    <button
+      onClick={() => alert()}
+      className="rounded-md border border-black py-1 px-2 text-sm"
+    >
+      Try me
+    </button>
+  )
+}
