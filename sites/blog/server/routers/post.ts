@@ -1,3 +1,4 @@
+/* eslint-disable import/prefer-default-export */
 import { markdownToHtml } from '@/lib/editor'
 import { postToSlackIfEnabled } from '@/lib/slack'
 import { TRPCError } from '@trpc/server'
@@ -155,8 +156,16 @@ export const postRouter = createProtectedRouter()
         take: 10,
         where: {
           hidden: false,
-          title: { search: input.query },
-          content: { search: input.query },
+          OR: [
+            {
+              title: { contains: input.query },
+            },
+            {
+              content: { contains: input.query },
+            },
+          ],
+          // title: { search: input.query },
+          // content: { search: input.query },
         },
         select: {
           id: true,
