@@ -1,5 +1,7 @@
 /** @type {import('next').NextConfig} */
-
-const withTM = require('next-transpile-modules')(['ui'])
-
-module.exports = withTM({ reactStrictMode: true })
+module.exports = {
+  reactStrictMode: true,
+  images: {
+    domains: ['res.cloudinary.com', 'avatars.githubusercontent.com'],
+  },
+}

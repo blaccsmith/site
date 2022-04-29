@@ -30,6 +30,8 @@ module.exports = {
   },
   rules: {
     'react/react-in-jsx-scope': 'off',
+    'react/jsx-props-no-spreading': 'off',
+    'react/function-component-definition': 'off',
 
     // next
     '@next/next/no-html-link-for-pages': 'off',

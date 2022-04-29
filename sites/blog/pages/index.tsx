@@ -1,85 +1,157 @@
-import type { NextPage } from 'next'
+import { Layout } from '@/components/layout'
+import { getQueryPaginationInput, Pagination } from '@/components/pagination'
+import type { PostSummaryProps } from '@/components/post-summary'
+import { PostSummarySkeleton } from '@/components/post-summary-skeleton'
+import { InferQueryPathAndInput, trpc } from '@/lib/trpc'
+import type { NextPageWithAuthAndLayout } from '@/lib/types'
+import { useSession } from 'next-auth/react'
+import dynamic from 'next/dynamic'
 import Head from 'next/head'
-import Image from 'next/image'
-import { Button } from 'ui'
+import { useRouter } from 'next/router'
+import * as React from 'react'
 
-const Home: NextPage = () => {
+const PostSummary = dynamic<PostSummaryProps>(
+  () => import('@/components/post-summary').then((mod) => mod.PostSummary),
+  { ssr: false }
+)
+
+const POSTS_PER_PAGE = 20
+
+const Home: NextPageWithAuthAndLayout = () => {
+  const { data: session } = useSession()
+  const router = useRouter()
+  const currentPageNumber = router.query.page ? Number(router.query.page) : 1
+  const utils = trpc.useContext()
+  const feedQueryPathAndInput: InferQueryPathAndInput<'post.feed'> = [
+    'post.feed',
+    getQueryPaginationInput(POSTS_PER_PAGE, currentPageNumber),
+  ]
+  const feedQuery = trpc.useQuery(feedQueryPathAndInput)
+  const likeMutation = trpc.useMutation(['post.like'], {
+    onMutate: async (likedPostId) => {
+      await utils.cancelQuery(feedQueryPathAndInput)
+
+      const previousQuery = utils.getQueryData(feedQueryPathAndInput)
+
+      if (previousQuery) {
+        utils.setQueryData(feedQueryPathAndInput, {
+          ...previousQuery,
+          posts: previousQuery.posts.map((post) =>
+            post.id === likedPostId
+              ? {
+                  ...post,
+                  likedBy: [
+                    ...post.likedBy,
+                    {
+                      user: { id: session!.user.id, name: session!.user.name },
+                    },
+                  ],
+                }
+              : post
+          ),
+        })
+      }
+
+      return { previousQuery }
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousQuery) {
+        utils.setQueryData(feedQueryPathAndInput, context.previousQuery)
+      }
+    },
+  })
+  const unlikeMutation = trpc.useMutation(['post.unlike'], {
+    onMutate: async (unlikedPostId) => {
+      await utils.cancelQuery(feedQueryPathAndInput)
+
+      const previousQuery = utils.getQueryData(feedQueryPathAndInput)
+
+      if (previousQuery) {
+        utils.setQueryData(feedQueryPathAndInput, {
+          ...previousQuery,
+          posts: previousQuery.posts.map((post) =>
+            post.id === unlikedPostId
+              ? {
+                  ...post,
+                  likedBy: post.likedBy.filter(
+                    (item) => item.user.id !== session!.user.id
+                  ),
+                }
+              : post
+          ),
+        })
+      }
+
+      return { previousQuery }
+    },
+    onError: (err, id, context: any) => {
+      if (context?.previousQuery) {
+        utils.setQueryData(feedQueryPathAndInput, context.previousQuery)
+      }
+    },
+  })
+
+  if (feedQuery.data) {
+    return (
+      <>
+        <Head>
+          <title>Beam</title>
+        </Head>
+
+        {feedQuery.data.postCount === 0 ? (
+          <div className="text-center text-secondary border rounded py-20 px-10">
+            There are no published posts to show yet.
+          </div>
+        ) : (
+          <div className="flow-root">
+            <ul className="-my-12 divide-y divide-primary">
+              {feedQuery.data.posts.map((post) => (
+                <li key={post.id} className="py-10">
+                  <PostSummary
+                    post={post}
+                    onLike={() => {
+                      likeMutation.mutate(post.id)
+                    }}
+                    onUnlike={() => {
+                      unlikeMutation.mutate(post.id)
+                    }}
+                  />
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <Pagination
+          itemCount={feedQuery.data.postCount}
+          itemsPerPage={POSTS_PER_PAGE}
+          currentPageNumber={currentPageNumber}
+        />
+      </>
+    )
+  }
+
+  if (feedQuery.isError) {
+    return <div>Error: {feedQuery.error.message}</div>
+  }
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center py-2">
-      <Head>
-        <title>Create Next App</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
-
-      <main className="flex w-full flex-1 flex-col items-center justify-center px-20 text-center">
-        <h1 className="text-6xl font-bold">
-          Welcome to{' '}
-          <a className="text-blue-600" href="https://nextjs.org">
-            Next.js!
-          </a>
-        </h1>
-
-        <p className="mt-3 text-2xl">
-          Click this button
-          <Button />
-        </p>
-
-        <div className="mt-6 flex max-w-4xl flex-wrap items-center justify-around sm:w-full">
-          <a
-            href="https://nextjs.org/docs"
-            className="mt-6 w-96 rounded-xl border p-6 text-left hover:text-blue-600 focus:text-blue-600"
-          >
-            <h3 className="text-2xl font-bold">Documentation &rarr;</h3>
-            <p className="mt-4 text-xl">
-              Find in-depth information about Next.js features and API.
-            </p>
-          </a>
-
-          <a
-            href="https://nextjs.org/learn"
-            className="mt-6 w-96 rounded-xl border p-6 text-left hover:text-blue-600 focus:text-blue-600"
-          >
-            <h3 className="text-2xl font-bold">Learn &rarr;</h3>
-            <p className="mt-4 text-xl">
-              Learn about Next.js in an interactive course with quizzes!
-            </p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/canary/examples"
-            className="mt-6 w-96 rounded-xl border p-6 text-left hover:text-blue-600 focus:text-blue-600"
-          >
-            <h3 className="text-2xl font-bold">Examples &rarr;</h3>
-            <p className="mt-4 text-xl">
-              Discover and deploy boilerplate example Next.js projects.
-            </p>
-          </a>
-
-          <a
-            href="https://vercel.com/import?filter=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className="mt-6 w-96 rounded-xl border p-6 text-left hover:text-blue-600 focus:text-blue-600"
-          >
-            <h3 className="text-2xl font-bold">Deploy &rarr;</h3>
-            <p className="mt-4 text-xl">
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
-      </main>
-
-      <footer className="flex h-24 w-full items-center justify-center border-t">
-        <a
-          className="flex items-center justify-center gap-2"
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by{' '}
-          <Image src="/vercel.svg" alt="Vercel Logo" width={72} height={16} />
-        </a>
-      </footer>
+    <div className="flow-root">
+      <ul className="-my-12 divide-y divide-primary">
+        {[...Array(3)].map((_, idx) => (
+          <li key={idx} className="py-10">
+            <PostSummarySkeleton />
+          </li>
+        ))}
+      </ul>
     </div>
   )
+}
+
+Home.auth = true
+
+Home.getLayout = function getLayout(page: React.ReactElement) {
+  return <Layout>{page}</Layout>
 }
 
 export default Home
