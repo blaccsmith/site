@@ -180,7 +180,11 @@ export function SearchDialog({ isOpen, onClose }: SearchDialogProps) {
             leaveFrom="opacity-100"
             leaveTo="opacity-0"
           >
-            <Dialog.Overlay className="fixed inset-0 transition-opacity bg-gray-700 opacity-90 dark:bg-gray-900" />
+            {isOpen ? (
+              <Dialog.Overlay className="fixed inset-0 transition-opacity bg-gray-700 opacity-90 transform dark:bg-gray-900" />
+            ) : (
+              <Dialog.Overlay className="fixed inset-0 transition-opacity bg-gray-700 opacity-0 transform" />
+            )}
           </Transition.Child>
 
           <Transition.Child
